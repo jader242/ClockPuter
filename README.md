@@ -1,0 +1,1 @@
+Just a simple clock for the M5Stack Cardputer. Takes in user input each boot for network SSID, password, and UTC time offset. Also displays the current battery percentage in pretty colors depending on the level. Still a work in progress, probably need to fix some things here and there
