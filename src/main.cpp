@@ -1,43 +1,43 @@
 #include <Arduino.h>
+#include <M5UnitScroll.h>
 #include <M5Cardputer.h>
 #include <WiFi.h>
-#include <WiFiUdp.h>
-#include <NTPClient.h>
+#include <time.h>
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org");
+M5UnitScroll scroll;
 
 int firstRun = 0;
-String ssid = "";
-String password = "";
-String timeOffset = "";
+char ssid[33] = {0};
+char password[65] = {0};
+char timeOffset[4] = {0};
 
 void setSSID() {
-	ssid = "";
+	memset(ssid, 0, sizeof(ssid));
 	bool done = false;
 	while (!done) {
 		M5Cardputer.update();
 		M5Cardputer.Display.setCursor(0, 0);
 		M5Cardputer.Display.println("Enter SSID: ");
 		auto status = M5Cardputer.Keyboard.keysState();
-
+		size_t len = strlen(ssid);
 		for (char i : status.word) {
-			if (ssid.length() < 32) {
-				ssid += i;
+			if (len < sizeof(ssid) - 1) {
+				ssid[len] = i;
+				ssid[len + 1] = '\0';
 			}
 		}
-		if (status.del && ssid.length() >= 0) {
-			if (status.del && ssid.length() > 0) {
-				ssid.remove(ssid.length() - 1);
-			}
+		if (status.del && len > 0) {
+			ssid[len - 1] = '\0';
 			M5Cardputer.Display.fillRect(0, 20, 240, 115);
 		}
-		if (status.enter) {
+		if (status.enter && len > 0) {
 			done = true;
+		}else if (status.enter && len <= 0) {
+			M5Cardputer.Display.fillScreen(BLACK);
 		}
 		M5Cardputer.Display.setCursor(0, 20);
 		M5Cardputer.Display.println(ssid);
-		delay(150);
+		delay(200);
 	}
 	M5Cardputer.Display.fillScreen(BLACK);
 	M5Cardputer.Display.setCursor(0, 0);
@@ -48,31 +48,32 @@ void setSSID() {
 }
 
 void setPassword() {
-	password = "";
+	memset(password, 0, sizeof(password));
 	bool done = false;
 	while (!done) {
 		M5Cardputer.update();
 		M5Cardputer.Display.setCursor(0, 0);
 		M5Cardputer.Display.println("Enter password:");
 		auto status = M5Cardputer.Keyboard.keysState();
-
+		size_t len = strlen(password);
 		for (char i : status.word) {
-			if (password.length() < 20) {
-				password += i;
+			if (len < sizeof(password) - 1) {
+				password[len] = i;
+				password[len + 1] = '\0';
 			}
 		}
-		if (status.del && password.length() >= 0) {
-			if (status.del && password.length() > 0) {
-				password.remove(password.length() - 1);
-			}
+		if (status.del && len > 0) {
+			password[len - 1] = '\0';
 			M5Cardputer.Display.fillRect(0, 20, 240, 115);
 		}
-		if (status.enter) {
+		if (status.enter && len > 0) {
 			done = true;
+		}else if (status.enter && len <= 0) {
+			M5Cardputer.Display.fillScreen(BLACK);
 		}
 		M5Cardputer.Display.setCursor(0, 20);
 		M5Cardputer.Display.println(password);
-		delay(150);
+		delay(200);
 	}
 	M5Cardputer.Display.fillScreen(BLACK);
 	M5Cardputer.Display.setCursor(0, 0);
@@ -83,41 +84,43 @@ void setPassword() {
 }
 
 void setTimeOffset() {
-	timeOffset = "";
+	memset(timeOffset, 0, sizeof(timeOffset));
 	bool done = false;
+	int offset = atoi(timeOffset);
 	while (!done) {
 		M5Cardputer.update();
 		M5Cardputer.Display.setCursor(0, 0);
 		M5Cardputer.Display.println("Enter UTC Offset:");
 		auto status = M5Cardputer.Keyboard.keysState();
-
+		size_t len = strlen(timeOffset);
 		for (char i : status.word) {
-			if ((i >= '0' && i <= '9') || (i == '-' && timeOffset.length() == 0)) {
-				timeOffset += i;
+			if ((i >= '0' && i <= '9') || (i == '-' && len == 0)) {
+				timeOffset[len] = i;
+				timeOffset[len + 1] = '\0';
 			}
 		}
-		if (status.del && timeOffset.length() >= 0) {
-			if (status.del && timeOffset.length() > 0) {
-				timeOffset.remove(timeOffset.length() - 1);
-			}
+		if (status.del && len > 0) {
+			timeOffset[len - 1] = '\0';
 			M5Cardputer.Display.fillRect(0, 20, 240, 115);
 		}
-		if (status.enter) {
-			if (timeOffset.toInt() <= 14 && timeOffset.toInt() >= -12) {
+		if (status.enter && len > 0) {
+			if (offset <= 14 && offset >= -12) {
 				done = true;
 			}else {
 				M5Cardputer.Display.fillScreen(BLACK);
-				timeOffset = "";
+				memset(timeOffset, 0, sizeof(timeOffset));
 				M5Cardputer.Display.drawString("Invalid UTC offset", 0, 0);
 				delay(2000);
 				M5Cardputer.Display.fillScreen(BLACK);
 			}
+		}else if (status.enter && len <= 0) {
+			M5Cardputer.Display.fillScreen(BLACK);
 		}
 		M5Cardputer.Display.setCursor(0, 20);
 		M5Cardputer.Display.println(timeOffset);
-		delay(150);
+		delay(200);
 	}
-	if (timeOffset.toInt() <= 14 && timeOffset.toInt() >= -12) {
+	if (offset <= 14 && offset >= -12) {
 		M5Cardputer.Display.fillScreen(BLACK);
 		M5Cardputer.Display.setCursor(0, 0);
 		M5Cardputer.Display.println("Timezone set to:");
@@ -152,22 +155,21 @@ void drawBattery() {
 }
 
 void drawTime() {
-	timeClient.update();
-	static int lastMinutes = -1;
-	int hours = timeClient.getHours();
-	int minutes = timeClient.getMinutes();
-	char timeStr[12];
-	if (hours == 12) {
-		snprintf(timeStr, sizeof(timeStr), "%02d:%02d PM", hours, minutes);
-	}else if (hours == 0) {
-		snprintf(timeStr, sizeof(timeStr), "%02d:%02d AM", (hours + 12), minutes);
-	}else {
-		if (hours < 12) {
-			snprintf(timeStr, sizeof(timeStr), "%02d:%02d AM", hours, minutes);
-		}else {
-			snprintf(timeStr,sizeof(timeStr), "%02d:%02d PM", (hours - 12), minutes);
-		}
+	struct tm t;
+	if (!getLocalTime(&t)) {
+		M5Cardputer.Display.drawString("No time", 5, 5);
+		return;
 	}
+	static int lastMinutes = -1;
+	int hours = t.tm_hour;
+	int minutes = t.tm_min;
+	char timeStr[12];
+	bool isPM = hours >= 12;
+	int displayHour = hours % 12;
+	if (displayHour == 0) {
+		displayHour = 12;
+	}
+	snprintf(timeStr, sizeof(timeStr), "%02d:%02d %s", displayHour, minutes, isPM ? "PM" : "AM");
 	M5Cardputer.Display.setTextSize(4);
 	M5Cardputer.Display.setTextColor(WHITE, BLACK);
 	int centerX = ((M5Cardputer.Display.width() / 2) - (M5Cardputer.Display.textWidth(timeStr) / 2));
@@ -176,28 +178,30 @@ void drawTime() {
 		M5Cardputer.Display.drawString(timeStr, centerX, centerY);
 		firstRun = 1;
 	}
-	if (minutes != lastMinutes) {
-		int newHours = timeClient.getHours();
-		int newMinutes = timeClient.getMinutes();
-		lastMinutes = newMinutes;
-		char newTimeStr[12];
-		if (newHours == 12) {
-			snprintf(newTimeStr, sizeof(newTimeStr), "%02d:%02d PM", newHours, newMinutes);
-		}else if (newHours == 0) {
-			snprintf(newTimeStr, sizeof(newTimeStr), "%02d:%02d AM", (newHours + 12), newMinutes);
-		}else {
-			if (newHours < 12) {
-				snprintf(newTimeStr, sizeof(newTimeStr), "%02d:%02d AM", newHours, newMinutes);
-			}else {
-				snprintf(newTimeStr, sizeof(newTimeStr), "%02d:%02d PM", (newHours - 12), newMinutes);
-			}
-		}
-		M5Cardputer.Display.drawString(newTimeStr, centerX, centerY);
+	M5Cardputer.Display.drawString(timeStr, centerX, centerY);
+}
+
+void drawDate() {
+	struct tm t;
+	if (!getLocalTime(&t)) {
+		M5Cardputer.Display.drawString("No date", 5, 5);
+		return;
 	}
+	int year = t.tm_year + 1900;
+	int month = t.tm_mon + 1;
+	int day = t.tm_mday;
+	char dateStr[16];
+	snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%04d", month, day, year);
+	M5Cardputer.Display.setTextSize(3);
+	M5Cardputer.Display.setTextColor(WHITE, BLACK);
+	int centerX = ((M5Cardputer.Display.width() / 2) - (M5Cardputer.Display.textWidth(dateStr) / 2));
+	int centerY = ((M5Cardputer.Display.height() / 2) - (M5Cardputer.Display.fontHeight() / 2));
+	M5Cardputer.Display.drawString(dateStr, centerX, centerY);
 }
 
 void setup() {
 	auto cfg = M5.config();
+	scroll.begin(&Wire, SCROLL_ADDR, 2, 1, 400000U);
 	M5Cardputer.begin(cfg, true);
 	M5Cardputer.Display.setRotation(1);
 	M5Cardputer.Display.setTextSize(2);
@@ -206,19 +210,42 @@ void setup() {
 	setPassword();
 	setTimeOffset();
 	WiFi.begin(ssid, password);
-	timeClient.begin();
-	int offsetHours = timeOffset.toInt();
-	timeClient.setTimeOffset(offsetHours * 3600);
+	int offsetHours = atoi(timeOffset);
+	configTime(offsetHours * 3600, 0, "pool.ntp.org", "time.nist.gov");
 }
 
 void loop() {
-	unsigned long last = 0;
+	int16_t delta = scroll.getIncEncoderValue();
+	static int screen = 0;
+	static int swap = 0;
+	screen += delta;
+	if (screen > 1) {
+		screen = 0;
+	}
+	if (screen < 0) {
+		screen = 1;
+	}
+	static unsigned long last = 0;
 	unsigned long now = millis();
 	const unsigned long interval = 5000;
-
-	drawTime();
-	if (now - last >= interval) { 
+	if (screen == 0) {
+		if (swap != 0) {
+			swap = 0;
+			M5Cardputer.Display.fillScreen(BLACK);
+			drawBattery();
+		}
+		drawTime();
+	}else if (screen == 1) {
+		if (swap != 1){
+			swap = 1;
+			M5Cardputer.Display.fillScreen(BLACK);
+			drawBattery();
+		}
+		drawDate();
+	}
+	if (now - last >= interval) {
+		last = now;
 		drawBattery();
 	}
-	delay(1000);
+	delay(20);
 }
