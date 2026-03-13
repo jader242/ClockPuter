@@ -86,7 +86,6 @@ void setPassword() {
 void setTimeOffset() {
 	memset(timeOffset, 0, sizeof(timeOffset));
 	bool done = false;
-	int offset = atoi(timeOffset);
 	while (!done) {
 		M5Cardputer.update();
 		M5Cardputer.Display.setCursor(0, 0);
@@ -104,6 +103,7 @@ void setTimeOffset() {
 			M5Cardputer.Display.fillRect(0, 20, 240, 115);
 		}
 		if (status.enter && len > 0) {
+			int offset = atoi(timeOffset);
 			if (offset <= 14 && offset >= -12) {
 				done = true;
 			}else {
@@ -120,16 +120,12 @@ void setTimeOffset() {
 		M5Cardputer.Display.println(timeOffset);
 		delay(200);
 	}
-	if (offset <= 14 && offset >= -12) {
-		M5Cardputer.Display.fillScreen(BLACK);
-		M5Cardputer.Display.setCursor(0, 0);
-		M5Cardputer.Display.println("Timezone set to:");
-		M5Cardputer.Display.println(timeOffset);
-		delay(2000);
-		M5Cardputer.Display.fillScreen(BLACK);
-	}else {
-		M5Cardputer.Display.fillScreen(BLACK);
-	}
+	M5Cardputer.Display.fillScreen(BLACK);
+	M5Cardputer.Display.setCursor(0, 0);
+	M5Cardputer.Display.println("Timezone set to:");
+	M5Cardputer.Display.println(timeOffset);
+	delay(2000);
+	M5Cardputer.Display.fillScreen(BLACK);
 }
 
 void drawBattery() {
